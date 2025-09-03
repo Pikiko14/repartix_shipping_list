@@ -60,7 +60,7 @@ class SenderDto {
   brand_phone?: string;
 }
 
-class OrderDto {
+export class OrderDto {
   @IsNotEmpty()
   @IsString()
   id?: string;
@@ -111,10 +111,15 @@ export class CreateShippingListDto {
   courier: CourierDto;
 
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => OrderDto)
   orders: OrderDto[];
 
   @IsOptional()
   parent_id?: string;
+
+  @IsOptional()
+  @IsArray()
+  ordersIds: string[];
 }

@@ -22,7 +22,7 @@ export class ShippingListService {
     if (isset)
       throw new RpcException({
         message: `One or more orders isset in this shipping list: ${isset?.reference}`,
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        status: HttpStatus.BAD_REQUEST,
         error: true,
       });
 

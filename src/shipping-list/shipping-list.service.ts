@@ -43,7 +43,7 @@ export class ShippingListService {
       );
 
       return {
-        succes: true,
+        success: true,
         shippingList,
         message: 'Shipping list create success',
       };

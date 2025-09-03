@@ -34,4 +34,9 @@ export class ShippingListController {
   remove(@Payload() deleteShippingList: DeleteShippingListDto) {
     return this.shippingListService.remove(deleteShippingList);
   }
+
+  @MessagePattern('update-shipping-list-order')
+  updateOrderStatus(@Payload() updateOrderStatus: any) {
+    return this.shippingListService.updateOrderStatus(updateOrderStatus);
+  }
 }

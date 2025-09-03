@@ -206,4 +206,9 @@ export class ShippingListService {
       });
     }
   }
+
+  async updateOrderStatus(updateOrderStatus: any) {
+    const shippingList = await this.repository.issetOrderId([updateOrderStatus.order_id]);
+    console.log(shippingList);
+  }
 }

@@ -97,6 +97,9 @@ export class ShippingList {
   @Prop({ required: false, default: false })
   is_close?: boolean;
 
+  @Prop({ required: false, default: null })
+  pdf_path?: string;  
+
   orders_delivered: number;
   order_total: number;
 }

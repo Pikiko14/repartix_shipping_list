@@ -266,8 +266,37 @@ export class ShippingListService {
     }
   }
 
+  async printPdf(findIdDto: DeleteShippingListDto) {
+    const shippingList = await this.repository.find(
+      findIdDto.id,
+      findIdDto.parent_id,
+    );
+
+    if (!shippingList)
+      throw new RpcException({
+        error: true,
+        status: HttpStatus.NOT_FOUND,
+        message: 'Shipping list not found',
+      });
+
+    try {
+      let pdf = shippingListPdf.pdf_path || await this.generatePdf(shippingList);
+
+      return {
+        success: true,
+        pdf,
+        message: 'Shipping list pdf',
+      };
+    } catch (error) {
+      throw new RpcException({
+        message: error.message,
+        status: HttpStatus.BAD_REQUEST,
+        error: true,
+      });
+    }
+  }
+
   async generatePdf(shippingList: ShippingListDocument | ShippingListEntity) {
-    console.log(path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'));
     const fonts = {
       Roboto: {
         normal: path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'),
@@ -285,7 +314,7 @@ export class ShippingListService {
       },
       content: [
         {
-          text: 'Relación de despacho N° 8',
+          text: `Relación de despacho N° ${shippingList.reference}`,
           style: 'header',
           alignment: 'center',
           margin: [0, 0, 0, 20],
@@ -302,7 +331,7 @@ export class ShippingListService {
         {
           table: {
             headerRows: 1,
-            widths: ['auto', '*', '*', '*', '*', 'auto'],
+            widths: ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
             body: [
               [
                 { text: '# Domicilio', bold: false },
@@ -360,6 +389,12 @@ export class ShippingListService {
           margin: [0, 50, 0, 0],
         },
       ],
+      styles: {
+        header: {
+          fontSize: 12,
+          color: 'red',
+        },
+      },
     };
 
     const pdfDoc = printer.createPdfKitDocument(docDefinition);

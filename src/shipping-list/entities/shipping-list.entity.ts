@@ -29,4 +29,5 @@ export class ShippingListEntity {
   }[];
   parent_id?: string;
   is_close?: boolean;
+  pdf_path?: string;
 }

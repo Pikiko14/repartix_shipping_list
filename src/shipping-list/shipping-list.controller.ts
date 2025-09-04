@@ -39,4 +39,9 @@ export class ShippingListController {
   updateOrderStatus(@Payload() updateOrderStatus: any) {
     return this.shippingListService.updateOrderStatus(updateOrderStatus);
   }
+
+  @MessagePattern('print-shipping-list-pdf')
+  printPdf(@Payload() printPdfDto: DeleteShippingListDto) {
+    return this.shippingListService.printPdf(printPdfDto);
+  }
 }

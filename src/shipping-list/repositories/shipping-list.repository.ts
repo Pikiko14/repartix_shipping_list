@@ -82,6 +82,7 @@ export class ShippingListRepository implements IShippingListDto {
       'courier.full_name',
       'orders.reference',
       'orders.status',
+      'is_close'
     ],
   ): Promise<PaginationResponseInterface> {
     try {

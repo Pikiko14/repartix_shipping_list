@@ -40,7 +40,7 @@ export class ShippingListRepository implements IShippingListDto {
 
   async update(
     id: string,
-    shipping: UpdateShippingListDto,
+    shipping: UpdateShippingListDto | ShippingListDocument,
   ): Promise<ShippingListEntity | null> {
     try {
       return await this.model.findOneAndUpdate({ _id: id }, shipping, {

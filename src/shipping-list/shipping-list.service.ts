@@ -2,7 +2,7 @@ import { RpcException } from '@nestjs/microservices';
 import { CacheService } from 'src/commons/cache/cache.service';
 import { QueryParamDto } from 'src/commons/dto/query-param.dto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { CreateShippingListDto } from './dto/create-shipping-list.dto';
+import { CreateShippingListDto, OrderDto } from './dto/create-shipping-list.dto';
 import { UpdateShippingListDto } from './dto/update-shipping-list.dto';
 import { ShippingListRepository } from './repositories/shipping-list.repository';
 import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
@@ -208,7 +208,29 @@ export class ShippingListService {
   }
 
   async updateOrderStatus(updateOrderStatus: any) {
-    const shippingList = await this.repository.issetOrderId([updateOrderStatus.order_id]);
-    console.log(shippingList);
+    try {
+      const shippingList = await this.repository.issetOrderId([updateOrderStatus.order_id]);
+
+      const orders = shippingList.orders.map((el: OrderDto) => {
+        if (el?.reference === updateOrderStatus?.reference) el.status = updateOrderStatus.status;
+        return el;
+      });
+
+      await this.cacheService.removeByPrefix(
+        `keyv:${updateOrderStatus.parent_id}:shipping-list:list`,
+      );
+
+      shippingList.orders = orders;
+
+      await this.repository.update(shippingList.id, shippingList);
+
+      return
+    } catch (error) {
+      throw new RpcException({
+        message: error.message,
+        status: HttpStatus.BAD_REQUEST,
+        error: true,
+      });
+    }
   }
 }

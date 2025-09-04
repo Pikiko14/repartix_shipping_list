@@ -1,14 +1,19 @@
-import { RpcException } from '@nestjs/microservices';
-import { CacheService } from 'src/commons/cache/cache.service';
-import { QueryParamDto } from 'src/commons/dto/query-param.dto';
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as PdfPrinter from 'pdfmake';
 import {
   CreateShippingListDto,
   OrderDto,
 } from './dto/create-shipping-list.dto';
+import { RpcException } from '@nestjs/microservices';
+import { CacheService } from 'src/commons/cache/cache.service';
+import { QueryParamDto } from 'src/commons/dto/query-param.dto';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ShippingListEntity } from './entities/shipping-list.entity';
+import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
 import { UpdateShippingListDto } from './dto/update-shipping-list.dto';
 import { ShippingListRepository } from './repositories/shipping-list.repository';
-import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
+import { ShippingListDocument } from 'src/shipping-list/schemas/shipping-list.schema';
 
 @Injectable()
 export class ShippingListService {
@@ -164,9 +169,7 @@ export class ShippingListService {
       const isset = await this.repository.issetOrderIdNoShipping(id, orderIds);
 
       if (isset && isset.id !== id) {
-        const references = updateShippingListDto.orders.map(
-          (o) => o.reference,
-        );
+        const references = updateShippingListDto.orders.map((o) => o.reference);
 
         throw new RpcException({
           message: `One or more orders of this (${references.join(
@@ -176,6 +179,8 @@ export class ShippingListService {
           error: true,
         });
       }
+
+      const pdf = await this.generatePdf(shippingList);
 
       shippingList = await this.repository.update(
         updateShippingListDto._id,
@@ -259,5 +264,110 @@ export class ShippingListService {
         error: true,
       });
     }
+  }
+
+  async generatePdf(shippingList: ShippingListDocument | ShippingListEntity) {
+    console.log(path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'));
+    const fonts = {
+      Roboto: {
+        normal: path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'),
+        bold: path.join(__dirname, '..', '..', 'fonts', 'Roboto-Medium.ttf'),
+        italics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
+        bolditalics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
+      },
+    };
+    const currentYear = new Date().getFullYear();
+    const printer = new PdfPrinter(fonts);
+
+    const docDefinition: any = {
+      defaultStyle: {
+        font: 'Roboto',
+      },
+      content: [
+        {
+          text: 'Relación de despacho N° 8',
+          style: 'header',
+          alignment: 'center',
+          margin: [0, 0, 0, 20],
+        },
+        {
+          columns: [
+            { text: 'Domiciliario:\nejemplo' },
+            { text: 'Fecha:\n01/09/2025', alignment: 'center' },
+            { text: 'Documento de identidad:\n123456385', alignment: 'right' },
+          ],
+          style: 'infoBox',
+          margin: [0, 0, 0, 20],
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['auto', '*', '*', '*', '*', 'auto'],
+            body: [
+              [
+                { text: '# Domicilio', bold: false },
+                { text: 'Cliente', bold: false },
+                { text: 'Dirección', bold: false },
+                { text: 'Teléfono', bold: false },
+                { text: 'Productos', bold: false },
+                { text: 'Total', bold: false },
+              ],
+              [
+                '#1 JAE-000000091',
+                'IVAN',
+                'Atlántico / BARRANQUILLA / CALLE87#53-62',
+                '3233341746',
+                '',
+                '(COP)12,000',
+              ],
+              [
+                '#2 JAE-000000089',
+                'uya',
+                'Lara / Barquisimeto / new',
+                '04242760155',
+                'test',
+                '(COP)12',
+              ],
+            ],
+          },
+        },
+        {
+          text: '\nCantidad de productos',
+          style: 'subheader',
+        },
+        {
+          table: {
+            widths: ['*', 'auto'],
+            body: [
+              [
+                { text: 'Cantidad de pedidos:\n2', style: 'summary' },
+                {
+                  text: 'Total\n(COP)12,012',
+                  style: 'summary',
+                  alignment: 'right',
+                },
+              ],
+            ],
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 10, 0, 20],
+        },
+        {
+          columns: [
+            { text: 'FIRMA\n\nDirector de bodega', alignment: 'center' },
+            { text: 'FIRMA\n\nejemplo\nDomiciliario', alignment: 'center' },
+          ],
+          margin: [0, 50, 0, 0],
+        },
+      ],
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    const filePath = path.join(
+      process.cwd(),
+      `pdfs/shipping-list-${shippingList.parent_id}-${shippingList.reference}.pdf`,
+    );
+    pdfDoc.pipe(fs.createWriteStream(filePath));
+    pdfDoc.end();
   }
 }

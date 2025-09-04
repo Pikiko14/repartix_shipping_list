@@ -126,5 +126,14 @@ export class ShippingListRepository implements IShippingListDto {
     }
   }
 
-  
+  async issetOrderIdNoShipping(shippingLisId: string, ordersId: string[]): Promise<ShippingListDocument> {
+    try {
+      return await this.model.findOne({
+        _id: { $nin: shippingLisId },
+        'orders.id': { $in: ordersId },
+      });
+    } catch (error) {
+      throw new Error('Error checking if order exists');
+    }
+  }
 }

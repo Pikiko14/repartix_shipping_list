@@ -2,7 +2,10 @@ import { RpcException } from '@nestjs/microservices';
 import { CacheService } from 'src/commons/cache/cache.service';
 import { QueryParamDto } from 'src/commons/dto/query-param.dto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { CreateShippingListDto, OrderDto } from './dto/create-shipping-list.dto';
+import {
+  CreateShippingListDto,
+  OrderDto,
+} from './dto/create-shipping-list.dto';
 import { UpdateShippingListDto } from './dto/update-shipping-list.dto';
 import { ShippingListRepository } from './repositories/shipping-list.repository';
 import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
@@ -144,7 +147,10 @@ export class ShippingListService {
 
   async update(id: string, updateShippingListDto: UpdateShippingListDto) {
     try {
-      let shippingList = await this.repository.find(id, updateShippingListDto.parent_id);
+      let shippingList = await this.repository.find(
+        id,
+        updateShippingListDto.parent_id,
+      );
 
       if (!shippingList)
         throw new RpcException({
@@ -152,6 +158,25 @@ export class ShippingListService {
           status: HttpStatus.NOT_FOUND,
           message: 'Shipping list not found',
         });
+
+      // validamos si las ordenes que vienen ya alguna existe previamente en el modelo
+      const orderIds = updateShippingListDto.orders.map((o) => o.id);
+      const isset = await this.repository.issetOrderIdNoShipping(id, orderIds);
+      console.log(isset);
+
+      if (isset && isset.id !== id) {
+        const references = updateShippingListDto.orders.map(
+          (o) => o.reference,
+        );
+
+        throw new RpcException({
+          message: `One or more orders of this (${references.join(
+            ', ',
+          )}) already exist) in this shipping list: ${isset?.reference}`,
+          status: HttpStatus.BAD_REQUEST,
+          error: true,
+        });
+      }
 
       shippingList = await this.repository.update(
         updateShippingListDto._id,
@@ -163,7 +188,7 @@ export class ShippingListService {
       );
 
       return {
-        succes: true,
+        success: true,
         shippingList,
         message: 'Shipping list create success',
       };
@@ -209,10 +234,13 @@ export class ShippingListService {
 
   async updateOrderStatus(updateOrderStatus: any) {
     try {
-      const shippingList = await this.repository.issetOrderId([updateOrderStatus.order_id]);
+      const shippingList = await this.repository.issetOrderId([
+        updateOrderStatus.order_id,
+      ]);
 
       const orders = shippingList.orders.map((el: OrderDto) => {
-        if (el?.reference === updateOrderStatus?.reference) el.status = updateOrderStatus.status;
+        if (el?.reference === updateOrderStatus?.reference)
+          el.status = updateOrderStatus.status;
         return el;
       });
 
@@ -224,7 +252,7 @@ export class ShippingListService {
 
       await this.repository.update(shippingList.id, shippingList);
 
-      return
+      return;
     } catch (error) {
       throw new RpcException({
         message: error.message,

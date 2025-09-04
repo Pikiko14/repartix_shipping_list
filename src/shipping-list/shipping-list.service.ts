@@ -162,7 +162,6 @@ export class ShippingListService {
       // validamos si las ordenes que vienen ya alguna existe previamente en el modelo
       const orderIds = updateShippingListDto.orders.map((o) => o.id);
       const isset = await this.repository.issetOrderIdNoShipping(id, orderIds);
-      console.log(isset);
 
       if (isset && isset.id !== id) {
         const references = updateShippingListDto.orders.map(

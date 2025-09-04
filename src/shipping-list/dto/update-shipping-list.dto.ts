@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateShippingListDto } from './create-shipping-list.dto';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional } from 'class-validator';
 
 export class UpdateShippingListDto extends PartialType(CreateShippingListDto) {
   @IsOptional()
@@ -16,4 +16,8 @@ export class UpdateShippingListDto extends PartialType(CreateShippingListDto) {
   @IsOptional()
   @IsNumber()
   order_total?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  is_close?: boolean;
 }

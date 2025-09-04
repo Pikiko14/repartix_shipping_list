@@ -94,6 +94,9 @@ export class ShippingList {
   @Prop({ required: true })
   parent_id?: string;
 
+  @Prop({ required: false, default: false })
+  is_close?: boolean;
+
   orders_delivered: number;
   order_total: number;
 }

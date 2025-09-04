@@ -28,4 +28,5 @@ export class ShippingListEntity {
     cash_amount?: string;
   }[];
   parent_id?: string;
+  is_close?: boolean;
 }

@@ -409,7 +409,7 @@ export class ShippingListService {
                   },
                   {
                     text: order.cash_amount
-                      ? currencyFormatter.format(parseFloat(order.cash_amount))
+                      ? currencyFormatter.format(parseFloat(order.cash_amount.replace('.', '')))
                       : '',
                     alignment: 'right',
                   },

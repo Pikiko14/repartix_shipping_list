@@ -186,8 +186,6 @@ export class ShippingListService {
         });
       }
 
-      const pdf = await this.generatePdf(shippingList);
-
       shippingList = await this.repository.update(
         updateShippingListDto._id,
         updateShippingListDto,

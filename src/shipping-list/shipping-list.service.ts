@@ -1,10 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as PdfPrinter from 'pdfmake';
+import { firstValueFrom } from 'rxjs';
 import {
   CreateShippingListDto,
   OrderDto,
 } from './dto/create-shipping-list.dto';
+import { envs } from 'src/commons/configuration';
+import { ClientProxy } from '@nestjs/microservices';
 import { RpcException } from '@nestjs/microservices';
 import { CacheService } from 'src/commons/cache/cache.service';
 import { QueryParamDto } from 'src/commons/dto/query-param.dto';
@@ -12,6 +15,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ShippingListEntity } from './entities/shipping-list.entity';
 import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
 import { UpdateShippingListDto } from './dto/update-shipping-list.dto';
+import { CloudinaryService } from 'src/commons/cloudinary/cloudinary.service';
 import { ShippingListRepository } from './repositories/shipping-list.repository';
 import { ShippingListDocument } from 'src/shipping-list/schemas/shipping-list.schema';
 
@@ -19,7 +23,9 @@ import { ShippingListDocument } from 'src/shipping-list/schemas/shipping-list.sc
 export class ShippingListService {
   constructor(
     @Inject() private readonly cacheService: CacheService,
+    @Inject() private readonly cloudinary: CloudinaryService,
     @Inject() private readonly repository: ShippingListRepository,
+    @Inject(envs.nats_service_name) private readonly client: ClientProxy,
   ) {}
 
   async create(createShippingListDto: CreateShippingListDto) {
@@ -280,7 +286,11 @@ export class ShippingListService {
       });
 
     try {
-      let pdf = shippingListPdf.pdf_path || await this.generatePdf(shippingList);
+      let pdf = await this.generatePdf(shippingList);
+
+      await this.cacheService.removeByPrefix(
+        `keyv:${findIdDto.parent_id}:shipping-list:list`,
+      );
 
       return {
         success: true,
@@ -297,112 +307,217 @@ export class ShippingListService {
   }
 
   async generatePdf(shippingList: ShippingListDocument | ShippingListEntity) {
-    const fonts = {
-      Roboto: {
-        normal: path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'),
-        bold: path.join(__dirname, '..', '..', 'fonts', 'Roboto-Medium.ttf'),
-        italics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
-        bolditalics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
-      },
-    };
-    const currentYear = new Date().getFullYear();
-    const printer = new PdfPrinter(fonts);
+    try {
+      const { configuration } = await firstValueFrom(
+        this.client.send('find-configuration', shippingList.parent_id),
+      );
 
-    const docDefinition: any = {
-      defaultStyle: {
-        font: 'Roboto',
-      },
-      content: [
-        {
-          text: `Relación de despacho N° ${shippingList.reference}`,
-          style: 'header',
-          alignment: 'center',
-          margin: [0, 0, 0, 20],
+      const fonts = {
+        Roboto: {
+          normal: path.join(process.cwd(), 'fonts', 'Roboto-Regular.ttf'),
+          bold: path.join(process.cwd(), 'fonts', 'Roboto-Medium.ttf'),
+          italics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
+          bolditalics: path.join(process.cwd(), 'fonts', 'Roboto-Italic.ttf'),
         },
-        {
-          columns: [
-            { text: 'Domiciliario:\nejemplo' },
-            { text: 'Fecha:\n01/09/2025', alignment: 'center' },
-            { text: 'Documento de identidad:\n123456385', alignment: 'right' },
-          ],
-          style: 'infoBox',
-          margin: [0, 0, 0, 20],
-        },
-        {
-          table: {
-            headerRows: 1,
-            widths: ['auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
-            body: [
-              [
-                { text: '# Domicilio', bold: false },
-                { text: 'Cliente', bold: false },
-                { text: 'Dirección', bold: false },
-                { text: 'Teléfono', bold: false },
-                { text: 'Productos', bold: false },
-                { text: 'Total', bold: false },
-              ],
-              [
-                '#1 JAE-000000091',
-                'IVAN',
-                'Atlántico / BARRANQUILLA / CALLE87#53-62',
-                '3233341746',
-                '',
-                '(COP)12,000',
-              ],
-              [
-                '#2 JAE-000000089',
-                'uya',
-                'Lara / Barquisimeto / new',
-                '04242760155',
-                'test',
-                '(COP)12',
-              ],
-            ],
-          },
-        },
-        {
-          text: '\nCantidad de productos',
-          style: 'subheader',
-        },
-        {
-          table: {
-            widths: ['*', 'auto'],
-            body: [
-              [
-                { text: 'Cantidad de pedidos:\n2', style: 'summary' },
-                {
-                  text: 'Total\n(COP)12,012',
-                  style: 'summary',
-                  alignment: 'right',
-                },
-              ],
-            ],
-          },
-          layout: 'lightHorizontalLines',
-          margin: [0, 10, 0, 20],
-        },
-        {
-          columns: [
-            { text: 'FIRMA\n\nDirector de bodega', alignment: 'center' },
-            { text: 'FIRMA\n\nejemplo\nDomiciliario', alignment: 'center' },
-          ],
-          margin: [0, 50, 0, 0],
-        },
-      ],
-      styles: {
-        header: {
-          fontSize: 12,
-          color: 'red',
-        },
-      },
-    };
+      };
+      const printer = new PdfPrinter(fonts);
 
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
-    const filePath = path.join(
-      process.cwd(),
-      `pdfs/shipping-list-${shippingList.parent_id}-${shippingList.reference}.pdf`,
-    );
-    pdfDoc.pipe(fs.createWriteStream(filePath));
-    pdfDoc.end();
+      const currencyFormatter = new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: configuration?.currency || 'COP',
+        minimumFractionDigits: 2,
+      });
+
+      // Calcular totales
+      const totalPedidos = shippingList.orders.length;
+      const totalEnvio = shippingList.orders.reduce(
+        (acc, o) => acc + (o.order_price ? parseFloat(o.order_price) : 0),
+        0,
+      );
+      const totalRecaudo = shippingList.orders.reduce(
+        (acc, o) => acc + (o.cash_amount ? parseFloat(o.cash_amount) : 0),
+        0,
+      );
+
+      const docDefinition: any = {
+        pageSize: 'LETTER',
+        defaultStyle: { font: 'Roboto', fontSize: 10 },
+        content: [
+          {
+            text: `Relación de envío N° ${shippingList.reference}`,
+            style: 'header',
+            alignment: 'center',
+            margin: [0, 0, 0, 20],
+          },
+          {
+            columns: [
+              {
+                stack: [
+                  { text: 'Domiciliario:', bold: true },
+                  {
+                    text: shippingList?.courier?.full_name?.toUpperCase() || '',
+                  },
+                ],
+              },
+              {
+                stack: [
+                  { text: 'Fecha:', bold: true, alignment: 'center' },
+                  {
+                    text: shippingList?.date?.toLocaleDateString() || '',
+                    alignment: 'center',
+                  },
+                ],
+              },
+              {
+                stack: [
+                  {
+                    text: 'Documento de identidad:',
+                    bold: true,
+                    alignment: 'right',
+                  },
+                  {
+                    text: shippingList?.courier?.dni || '',
+                    alignment: 'right',
+                  },
+                ],
+              },
+            ],
+            style: 'infoBox',
+            margin: [0, 0, 0, 20],
+          },
+          {
+            table: {
+              headerRows: 1,
+              widths: ['auto', '*', 'auto', 'auto', 'auto'],
+              body: [
+                [
+                  { text: 'Referencia', bold: true },
+                  { text: 'Cliente', bold: true },
+                  { text: 'Precio envío', bold: true, alignment: 'right' },
+                  { text: 'Recaudo', bold: true, alignment: 'center' },
+                  { text: 'Monto Recaudo', bold: true, alignment: 'right' },
+                ],
+                ...shippingList.orders.map((order) => [
+                  order.reference || '',
+                  `${order.client.name} ${order.client.last_name}`.trim(),
+                  order.order_price
+                    ? currencyFormatter.format(parseFloat(order.order_price))
+                    : '',
+                  {
+                    text: order.cash_on_delivery ? 'Sí' : 'No',
+                    alignment: 'center',
+                  },
+                  {
+                    text: order.cash_amount
+                      ? currencyFormatter.format(parseFloat(order.cash_amount))
+                      : '',
+                    alignment: 'right',
+                  },
+                ]),
+                [
+                  {
+                    text: `Total pedidos: ${totalPedidos}`,
+                    colSpan: 2,
+                    bold: true,
+                  },
+                  {},
+                  {
+                    text: currencyFormatter.format(totalEnvio),
+                    bold: true,
+                    alignment: 'right',
+                  },
+                  { text: '', bold: true },
+                  {
+                    text: currencyFormatter.format(totalRecaudo),
+                    bold: true,
+                    alignment: 'right',
+                  },
+                ],
+              ],
+            },
+            layout: {
+              hLineWidth: (i) => (i === 1 ? 1 : 0),
+              vLineWidth: () => 0,
+              hLineColor: () => 'grey',
+              paddingLeft: () => 4,
+              paddingRight: () => 4,
+              paddingTop: () => 4,
+              paddingBottom: () => 4,
+            },
+            style: 'infoBox',
+            margin: [0, 20, 0, 20],
+          },
+          {
+            columns: [
+              {
+                text: 'FIRMA\n\nDirector de bodega',
+                alignment: 'center',
+                bold: true,
+              },
+              {
+                text: 'FIRMA\n\nDomiciliario',
+                alignment: 'center',
+                bold: true,
+              },
+            ],
+            margin: [0, 50, 0, 0],
+          },
+        ],
+        styles: {
+          header: { fontSize: 10, bold: true },
+          infoBox: { fontSize: 10 },
+        },
+      };
+
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      const filePath = path.join(
+        process.cwd(),
+        `shipping-${shippingList.parent_id}-${shippingList.reference}.pdf`,
+      );
+      const writeStream = fs.createWriteStream(filePath);
+      pdfDoc.pipe(writeStream);
+      pdfDoc.end();
+
+      // Esperamos a que el archivo se haya escrito completamente
+      const pdf = await new Promise<string | null>((resolve, reject) => {
+        writeStream.on('finish', async () => {
+          try {
+            // Borrar archivo viejo en Cloudinary si existe
+            if (shippingList?.pdf_path) {
+              await this.cloudinary.deleteFile(shippingList.pdf_path);
+            }
+
+            // Subir archivo nuevo
+            const cloudinaryResult = await this.cloudinary.uploadFilePath(
+              filePath,
+              `shipping_list/${new Date().getMonth() + 1}-${new Date().getFullYear()}`,
+              `shipping-list-${shippingList.parent_id}-${shippingList.reference}.pdf`,
+            );
+
+            if (cloudinaryResult?.secure_url) {
+              shippingList.pdf_path = cloudinaryResult.secure_url;
+              await this.repository.update(shippingList.id, shippingList);
+              resolve(cloudinaryResult.secure_url);
+            } else {
+              resolve(null);
+            }
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        writeStream.on('error', reject);
+      });
+
+      setTimeout(() => fs.unlinkSync(filePath), 3000);
+
+      return pdf;
+    } catch (error) {
+      throw new RpcException({
+        message: error.message,
+        status: HttpStatus.BAD_REQUEST,
+        error: true,
+      });
+    }
   }
 }

@@ -94,6 +94,16 @@ export class ShippingListService {
         });
       }
 
+      // fechas
+      if (queryParamsDto.from && queryParamsDto.to) {
+        const to = new Date(queryParamsDto.to);
+        const from = new Date(queryParamsDto.from);
+        const startOfDay = new Date(from.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(to.setHours(23, 59, 59, 999));
+
+        andConditions.push({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
+      }
+
       // query final
       const query: Record<string, any> = { $and: andConditions };
 

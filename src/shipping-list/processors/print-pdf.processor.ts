@@ -43,21 +43,21 @@ export class PrintPdfProcessor {
   @OnQueueActive()
   onActive(job: Job) {
     this.logger.verbose(
-      `Job ${job.id} para la lista de envíos #${job.data.reference} está en ejecución...`,
+      `Job ${job.id} para la lista de envíos #${job.data['shippingList'].reference} está en ejecución...`,
     );
   }
 
   @OnQueueCompleted()
   onCompleted(job: Job, result: any) {
     this.logger.log(
-      `Job ${job.id} para la lista de envíos #${job.data.reference} completado.`,
+      `Job ${job.id} para la lista de envíos #${job.data['shippingList'].reference} completado.`,
     );
   }
 
   @OnQueueFailed()
   onFailed(job: Job<any>, error: any) {
     this.logger.error(
-      `Job ${job.id} para la lista de envíos #${job.data.reference} falló con error:`,
+      `Job ${job.id} para la lista de envíos #${job.data['shippingList'].reference} falló con error:`,
       error,
     );
   }

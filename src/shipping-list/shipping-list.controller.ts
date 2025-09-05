@@ -44,4 +44,9 @@ export class ShippingListController {
   printPdf(@Payload() printPdfDto: DeleteShippingListDto) {
     return this.shippingListService.printPdf(printPdfDto);
   }
+
+  @MessagePattern('close-shipping-list')
+  closeShippingList(@Payload() updateShippingDto: UpdateShippingListDto) {
+    return this.shippingListService.closeShippingList(updateShippingDto);
+  }
 }

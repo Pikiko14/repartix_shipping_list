@@ -291,7 +291,10 @@ export class ShippingListService {
       );
 
       // procesamos el pdf en la cola
-      await this.guidesQueue.add('print', { shippingList, request_user_id: findIdDto.user_id });
+      await this.guidesQueue.add('print', {
+        shippingList,
+        request_user_id: findIdDto.user_id,
+      });
 
       return {
         success: true,
@@ -303,6 +306,41 @@ export class ShippingListService {
         message: error.message,
         status: HttpStatus.BAD_REQUEST,
         error: true,
+      });
+    }
+  }
+
+  async closeShippingList(updateShippingDto: UpdateShippingListDto) {
+    let shippingList = await this.repository.find(
+      updateShippingDto.id,
+      updateShippingDto.parent_id,
+    );
+
+    if (!shippingList)
+      throw new RpcException({
+        error: true,
+        status: HttpStatus.NOT_FOUND,
+        message: 'Shipping list not found',
+      });
+
+    shippingList = await this.repository.update(updateShippingDto._id, {
+      is_close: true,
+    });
+
+    await this.cacheService.removeByPrefix(
+      `keyv:${updateShippingDto.parent_id}:shipping-list:list`,
+    );
+
+    return {
+      success: true,
+      shippingList,
+      message: 'Shipping list update success',
+    };
+    try {
+    } catch (error) {
+      throw new RpcException({
+        message: error.message,
+        status: HttpStatus.BAD_REQUEST,
       });
     }
   }

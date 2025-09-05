@@ -31,7 +31,10 @@ export class PrintPdfProcessor {
   @Process('print')
   async handlerPrint(job: Job<{ data: any }>) {
     try {
-      await this.generatePdf(job.data as ShippingListDocument | any);
+      await this.generatePdf(
+        job.data['shippingList'] as ShippingListDocument | any,
+        job.data['request_user_id'],
+      );
     } catch (error) {
       this.logger.error(error);
     }
@@ -59,8 +62,9 @@ export class PrintPdfProcessor {
     );
   }
 
-  async generatePdf(shippingList: any) {
+  async generatePdf(shippingList: any, userIdRequest: string) {
     try {
+      console.log(shippingList);
       const { configuration } = await firstValueFrom(
         this.client.send('find-configuration', shippingList.parent_id),
       );
@@ -255,7 +259,7 @@ export class PrintPdfProcessor {
               this.client.emit('create-websocket-notification', {
                 success: true,
                 data: { pdf: cloudinaryResult.secure_url, model_id: shippingList._id },
-                room: shippingList.parent_id,
+                room: `${userIdRequest}-${shippingList.parent_id}`,
                 model: 'shipping_list',
               });
               resolve(cloudinaryResult.secure_url);

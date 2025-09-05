@@ -273,7 +273,7 @@ export class ShippingListService {
   }
 
   async printPdf(findIdDto: DeleteShippingListDto) {
-    const shippingList = await this.repository.find(
+    const shippingList: any = await this.repository.find(
       findIdDto.id,
       findIdDto.parent_id,
     );
@@ -291,7 +291,7 @@ export class ShippingListService {
       );
 
       // procesamos el pdf en la cola
-      await this.guidesQueue.add('print', shippingList);
+      await this.guidesQueue.add('print', { shippingList, request_user_id: findIdDto.user_id });
 
       return {
         success: true,

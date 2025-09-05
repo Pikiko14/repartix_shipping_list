@@ -8,4 +8,7 @@ export class DeleteShippingListDto {
   @IsString()
   @IsOptional()
   parent_id: string;
+
+  @IsOptional()
+  user_id: string;
 }

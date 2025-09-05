@@ -64,7 +64,6 @@ export class PrintPdfProcessor {
 
   async generatePdf(shippingList: any, userIdRequest: string) {
     try {
-      console.log(shippingList);
       const { configuration } = await firstValueFrom(
         this.client.send('find-configuration', shippingList.parent_id),
       );

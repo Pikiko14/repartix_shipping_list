@@ -256,6 +256,7 @@ export class PrintPdfProcessor {
                 success: true,
                 data: { pdf: cloudinaryResult.secure_url, model_id: shippingList._id },
                 room: shippingList.parent_id,
+                model: 'shipping_list',
               });
               resolve(cloudinaryResult.secure_url);
             } else {

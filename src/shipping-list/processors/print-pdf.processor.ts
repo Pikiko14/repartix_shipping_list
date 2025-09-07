@@ -73,6 +73,7 @@ export class PrintPdfProcessor {
       const updateOrdersCourier = {
         ordersIds: ids,
         courier: shippingList.courier,
+        parent_id: shippingList.parent_id,
       }
       this.client.emit('set-courier-in-orders', updateOrdersCourier);
 

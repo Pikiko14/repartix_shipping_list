@@ -48,6 +48,12 @@ export class ShippingListService {
         `keyv:${createShippingListDto.parent_id}:shipping-list:list`,
       );
 
+      // procesamos el pdf en la cola
+      await this.guidesQueue.add('print', {
+        shippingList,
+        request_user_id: createShippingListDto.user_request_id,
+      });
+
       return {
         success: true,
         shippingList,

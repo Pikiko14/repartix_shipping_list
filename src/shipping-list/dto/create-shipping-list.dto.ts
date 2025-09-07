@@ -122,4 +122,7 @@ export class CreateShippingListDto {
   @IsOptional()
   @IsArray()
   ordersIds: string[];
+
+  @IsOptional()
+  user_request_id?: string;
 }

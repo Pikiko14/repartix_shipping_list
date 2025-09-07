@@ -64,9 +64,17 @@ export class PrintPdfProcessor {
 
   async generatePdf(shippingList: any, userIdRequest: string) {
     try {
+      const ids = shippingList.orders.map((o) => o.id);
       const { configuration } = await firstValueFrom(
         this.client.send('find-configuration', shippingList.parent_id),
       );
+
+      // set courier in order
+      const updateOrdersCourier = {
+        ordersIds: ids,
+        courier: shippingList.courier,
+      }
+      this.client.emit('set-courier-in-orders', updateOrdersCourier);
 
       const fonts = {
         Roboto: {

@@ -4,10 +4,11 @@ import {
   OrderDto,
 } from './dto/create-shipping-list.dto';
 import { InjectQueue } from '@nestjs/bull';
-import { RpcException } from '@nestjs/microservices';
+import { envs } from 'src/commons/configuration';
 import { CacheService } from 'src/commons/cache/cache.service';
 import { QueryParamDto } from 'src/commons/dto/query-param.dto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { DeleteShippingListDto } from './dto/delete-shipping-list.dto';
 import { UpdateShippingListDto } from './dto/update-shipping-list.dto';
 import { ShippingListRepository } from './repositories/shipping-list.repository';
@@ -18,6 +19,7 @@ export class ShippingListService {
     @InjectQueue('shipping') private guidesQueue: Queue,
     @Inject() private readonly cacheService: CacheService,
     @Inject() private readonly repository: ShippingListRepository,
+    @Inject(envs.nats_service_name) private readonly client: ClientProxy,
   ) {}
 
   async create(createShippingListDto: CreateShippingListDto) {
@@ -202,6 +204,15 @@ export class ShippingListService {
       await this.cacheService.removeByPrefix(
         `keyv:${updateShippingListDto.parent_id}:shipping-list:list`,
       );
+
+      // set couirer in orders
+      const ids = updateShippingListDto.orders.map((o) => o.id);
+      const updateOrdersCourier = {
+        ordersIds: ids,
+        courier: shippingList.courier,
+        parent_id: shippingList.parent_id,
+      }
+      this.client.emit('set-courier-in-orders', updateOrdersCourier);
 
       return {
         success: true,
